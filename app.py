@@ -11,7 +11,7 @@ def spell_check():
         return 'No file part', HTTPStatus.BAD_REQUEST
     print(request.headers.get('start'))
     print(request.headers.get('end'))
-    return 'Succesfully uploaded', HTTPStatus.OK
+    return {"name": "hola"}, HTTPStatus.OK
 
 
 if __name__ == '__main__':
