@@ -6,10 +6,13 @@ from services.contextualspellchecker import ContextualSpellCheck
 from services.namesdictionary import NamesDictionary
 from services.spellcheckerservice import analize_file_with_bert
 from services.dictionary import EnglishDictionary
+import torch
+from transformers import BertForMaskedLM, BertTokenizer
 
-
-
+tokenizer = BertTokenizer.from_pretrained('dccuchile/bert-base-spanish-wwm-cased')
+model = BertTokenizer.from_pretrained('dccuchile/bert-base-spanish-wwm-cased')
 app = Flask(__name__)
+
 
 
 def load_spacy_contextual():
@@ -32,7 +35,7 @@ nlp = load_spacy_contextual()
 def spell_check():
     if 'file' not in request.files:
         return 'No file part', HTTPStatus.BAD_REQUEST
-    return {"errors": analize_file_with_bert(request.files['file'], nlp)}, HTTPStatus.OK
+    return {"errors": analize_file_with_bert(request.files['file'], model, tokenizer)}, HTTPStatus.OK
 
 
 if __name__ == '__main__':

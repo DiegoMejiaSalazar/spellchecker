@@ -13,6 +13,8 @@ from spacy.vocab import Vocab
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 from spacy.language import Language
 
+from services.homologicalwords import HomologicalWords
+
 
 @Language.factory("contextual spellchecker")
 class ContextualSpellCheck(object):
@@ -46,7 +48,7 @@ class ContextualSpellCheck(object):
                                           by individual steps in spell check.
                                           Defaults to False.
         """
-
+        self.homophones_words = HomologicalWords.words
         if vocab_path != "":
             vocab_path = str(vocab_path)
             try:
@@ -54,17 +56,7 @@ class ContextualSpellCheck(object):
                 with open(vocab_path, encoding="utf8") as f:
                     print(vocab_path)
                     print("inside vocab path")
-                    # if want to remove '[unusedXX]' from vocab
-                    # words = [
-                    #     line.rstrip()
-                    #     for line in f
-                    #     if not line.startswith("[unused")
-                    # ]
                     words = [line.strip() for line in f]
-
-                # The below code adds the necessary words like numbers
-                # /punctuations/tokenizer specific words like [PAD]/[
-                # unused0]/##M
                 print("file opened!")
                 current_path = os.path.dirname(__file__)
                 vocab_path = os.path.join(current_path, "data", "vocab.txt")
@@ -73,12 +65,6 @@ class ContextualSpellCheck(object):
 
                 with open(vocab_path, encoding="utf8") as f:
                     print("Inside [unused....]")
-                    # if want to remove '[unusedXX]' from vocab
-                    # words = [
-                    #     line.rstrip()
-                    #     for line in f
-                    #     if not line.startswith("[unused")
-                    # ]
                     for line in f:
                         extra_token = line.strip()
                         if extra_token.startswith("[unused"):
@@ -110,7 +96,7 @@ class ContextualSpellCheck(object):
         self.vocab = Vocab(strings=words)
         logging.getLogger("transformers").setLevel(logging.ERROR)
         self.BertModel = AutoModelForMaskedLM.from_pretrained(self.model_name)
-        self.mask = self.BertTokenizer.mask_token # [MASK]
+        self.mask = self.BertTokenizer.mask_token
         self.debug = debug
         self.performance = performance
         if not Doc.has_extension("contextual_spellCheck"):
@@ -162,7 +148,7 @@ class ContextualSpellCheck(object):
                 cleaned_sentence = self.BertTokenizer.convert_tokens_to_string(
                     raw_sentence
                 )
-                doc._.set("outcome_spellCheck", cleaned_sentence)#haves
+                doc._.set("outcome_spellCheck", cleaned_sentence)
         else:
             misspell_tokens, doc = self.misspell_identify(doc)
             if len(misspell_tokens) > 0:
@@ -175,7 +161,7 @@ class ContextualSpellCheck(object):
                 doc._.set("outcome_spellCheck", cleaned_sentence)
         return doc
 
-    def check(self, query="", spacy_model="es_dep_news_trf"):
+    def check(self, query="", spacy_model="en_core_web_sm"):
         """
         Complete pipeline for **testing purpose only**
         Keyword Args:
@@ -237,11 +223,18 @@ class ContextualSpellCheck(object):
         docCopy = copy.deepcopy(doc)
 
         misspell = []
-        for token in docCopy:
-            print("TOKEN HAS ENT TYPE OF : ", token.ent_type_)
-            if token.pos_ == "VERB":
-                if self.deep_tokenize_in_vocab(token.text):
-                    misspell.append(token)
+        try :
+            for token in docCopy:
+                if (
+                    (token.text in self.homophones_words or token.lemma_ in self.homophones_words)
+                ):
+                    print("="*70)
+                    print(token.text)
+                    if self.deep_tokenize_in_vocab(token.text):
+                        misspell.append(token)
+        except Exception as ex:
+            print(ex)
+
         if self.debug:
             print("misspell identified: ", misspell)
         return misspell, doc
@@ -268,7 +261,6 @@ class ContextualSpellCheck(object):
         """
         response = {}
         score = {}
-
         for token in misspellings:
             update_query = ""
             # Instead of using complete doc, we use sentence to provide context
@@ -280,6 +272,8 @@ class ContextualSpellCheck(object):
                     update_query += self.mask + i.whitespace_
                 else:
                     update_query += i.text_with_ws
+            # print("QUERY")
+            # print(update_query)
             if self.debug:
                 print(
                     "\nFor",
@@ -390,7 +384,7 @@ class ContextualSpellCheck(object):
             doc._.set("outcome_spellCheck", update_query)
         else:
             doc._.set("performed_spellCheck", False)
-
+        print("Final suggestions", doc._.suggestions_spellCheck)
         if self.debug:
             print("Final suggestions", doc._.suggestions_spellCheck)
 
@@ -557,17 +551,11 @@ class ContextualSpellCheck(object):
         pre_puct_position = -1
         for char_position in range(text_len):
             if unicodedata.category(text[char_position]).startswith("P"):
-                # print("current_pos is {} and sub_token append {}"
-                # .format(char_position,text[char_position]))
                 sub_tokens.append(text[char_position])
-                # print("pre_pos is {}, cur  is {} , pre to current is {}"
-                # .format(pre_puct_position,char_position,text[pre_puct_position+1:char_position]))
                 if (
                     pre_puct_position >= 0
                     and text[pre_puct_position + 1 : char_position] != ""
                 ):
-                    # print("pre_pos is {}, cur  is {} , pre to current is {}"
-                    # .format(pre_puct_position,char_position,text[pre_puct_position+1:char_position]))
                     sub_tokens.append(
                         text[pre_puct_position + 1 : char_position]
                     )
@@ -578,8 +566,6 @@ class ContextualSpellCheck(object):
                 and (char_position + 1 == text_len)
                 and (text[pre_puct_position + 1 :] != "")
             ):
-                # print("inside last token append {}"
-                # .format(text[pre_puct_position+1:]))
                 sub_tokens.append(text[pre_puct_position + 1 :])
 
         if len(sub_tokens) > 0:
