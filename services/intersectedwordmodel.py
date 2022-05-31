@@ -8,3 +8,4 @@ class IntersercetedWord:
         self.is_contextual_error = has_contextual_errors
         self.is_ortographical_error = has_ortographical_errors
         self.suggestions = suggestions
+        self.is_useless = False
