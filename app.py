@@ -1,10 +1,10 @@
 from flask import Flask, request
 from http import HTTPStatus
-import spacy
 from services.namesdictionary import NamesDictionary
 from services.spellcheckerservice import analize_file_with_bert
 from services.dictionary import EnglishDictionary
 from transformers import BertForMaskedLM, BertTokenizer
+from waitress import serve
 
 tokenizer = BertTokenizer.from_pretrained('dccuchile/bert-base-spanish-wwm-cased')
 model = BertForMaskedLM.from_pretrained('dccuchile/bert-base-spanish-wwm-cased')
@@ -21,4 +21,5 @@ def spell_check():
 if __name__ == '__main__':
     EnglishDictionary.load()
     NamesDictionary.load()
-    app.run()
+    serve(app, host="0.0.0.0", port=5000)
+    print('app is serving on localhost:5000')
