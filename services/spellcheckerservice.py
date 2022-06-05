@@ -7,7 +7,7 @@ from services.intersectedwordmodel import IntersercetedWord
 from services.namesdictionary import NamesDictionary
 import torch
 import math
-
+import time
 
 diccionario = hunspell.HunSpell('/usr/share/hunspell/esbol.dic',
                               '/usr/share/hunspell/esbol.aff')
@@ -24,6 +24,9 @@ def format_suggestions(suggestions):
 def mask_paragraph(paragraph):
     for word in HomologicalWords.words:
         paragraph = paragraph.replace(" " + word + " ", " [MASK] ")
+        paragraph = paragraph.replace(" " + word + ",", " [MASK],")
+        paragraph = paragraph.replace(" " + word + ".", " [MASK].")
+        paragraph = paragraph.replace(" " + word + ":", " [MASK]:")
     return paragraph
 
 
@@ -60,42 +63,40 @@ def sentence_contains_homological_word(list_of_words, sentence):
 def get_sentences_with_contextual_errors(paragraph):
     result = []
     splitted_paragraph = paragraph.split('\n')
-    flag = False
-    first_sentence_flag = True
     sentence_to_add = ''
     sentence_before = ''
-    last_sentence = ''
     word_with_homological_error = ''
+    is_inside_pdf_table = False
+    sentence_before_was_added = False
+    is_pending_to_add = False
     for sentence in splitted_paragraph:
+        if re.search(r'\bTabla\b\s\d', sentence):
+            is_inside_pdf_table = True
+        if re.search(r'\b[f,F]uente\b\s*[:]', sentence):
+            is_inside_pdf_table = False
         analized_word, has_error = sentence_contains_homological_word(HomologicalWords.words, sentence)
-        if (not has_error) and first_sentence_flag:
+        if (not has_error) and not sentence_before_was_added:
+            if sentence == '':
+                continue
             sentence_before = sentence
-            first_sentence_flag = False
-            flag = False
-            last_sentence = ''
-            sentence_to_add = ''
             continue
         if has_error:
-            if first_sentence_flag is False:
-                sentence_before = ''
             word_with_homological_error = analized_word
             sentence_to_add += sentence_before + " " + sentence + " "
-            last_sentence = sentence
-            flag = True
+            sentence_before_was_added = True
+            is_pending_to_add = True
             continue
-        if not has_error:
-            if sentence_to_add == '':
+        if (not has_error) and sentence_before_was_added:
+            if sentence == '':
                 continue
             sentence_to_add += sentence
-            result.append((word_with_homological_error, sentence_to_add))
-            first_sentence_flag = True
-            flag = False
+            result.append((is_inside_pdf_table, word_with_homological_error, sentence_to_add))
+            sentence_before_was_added = False
+            is_pending_to_add = False
             sentence_to_add = ''
             sentence_before = ''
-            last_sentence = ''
-    if flag:
-        result.append((word_with_homological_error, last_sentence))
-
+    if is_pending_to_add:
+        result.append((is_inside_pdf_table, word_with_homological_error, sentence_to_add))
     return result
 
 
@@ -105,10 +106,10 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
     paragraphs_with_homological_words = [paragraph for paragraph in splitted_paragraphs if check_if_paragraph_contains_list_of_words(HomologicalWords.words, paragraph)]
     predicted_token = []
     first_homological_word_in_pair = False
-    first_homological_word_in_pair_value = None
+    print("======================================= FIRST PART ============================")
     for paragraph in paragraphs_with_homological_words:
         sentences_containing_contextual_errors = get_sentences_with_contextual_errors(paragraph)
-        for word, sentence in sentences_containing_contextual_errors:
+        for is_inside_pdf_table, word, sentence in sentences_containing_contextual_errors:
             masked_paragraph = mask_paragraph("[CLS] " + sentence + " [SEP]")
             tokens = tokenizer.tokenize(masked_paragraph)
             indexed_tokens = tokenizer.convert_tokens_to_ids(tokens)
@@ -121,37 +122,50 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
             print("SENTENCE: ", sentence)
             print("WORD: ", word)
             print("MASKED PARAGRAPH: ", masked_paragraph)
+            print("IS INSIDE PDF TABLE", is_inside_pdf_table)
             if len(mask_positions) == 1:
                 idxs = torch.argsort(predictions[0, mask_positions[0]], descending=True)
-                print("PREDICTIONS: ", tokenizer.convert_ids_to_tokens(idxs[:5]))
-                predicted_token.append((word, tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
+                print("PREDICTIONS 1: ", tokenizer.convert_ids_to_tokens(idxs[:5]))
+                predicted_token.append((is_inside_pdf_table,word, tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
             else:
                 for i, midx in enumerate(mask_positions):
                     idxs = torch.argsort(predictions[0, midx], descending=True)
-                    print("PREDICTIONS: ", tokenizer.convert_ids_to_tokens(idxs[:5]))
-                    predicted_token.append((word, tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
+                    print("PREDICTIONS 2: ", tokenizer.convert_ids_to_tokens(idxs[:5]))
+                    predicted_token.append((is_inside_pdf_table, word, tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
             print("-" * 100)
+    print(predicted_token)
+    print("===================================== SECOND PART =============================================")
     for word in extracted_words:
         word_to_analize = word.get('text')
         if ':' in word_to_analize or '.' in word_to_analize or ',' in word_to_analize:
             word_to_analize = word_to_analize.replace(':', '').replace(',', '').replace('.', '')
         if word_to_analize in HomologicalWords.words:
+            print("word in second part: ", word_to_analize)
             if first_homological_word_in_pair:
+                print("two homologica words in one")
+                print("!!!!!!!!!!!!! WORD was being pop in sequence")
                 predicted_token.pop(0)
                 result.pop()
                 first_homological_word_in_pair = False
                 continue
             if len(predicted_token) == 0:
+                print("THIS SHOULD NOT HAPPEN !!!!!!!!!!!!!!!!!")
                 continue
-            word_with_errors, homological_predictions, loss_value = predicted_token.pop(0)
+            is_in_contained_in_table, word_with_errors, homological_predictions, loss_value = predicted_token.pop(0)
+            print("WORD IS BEING POPPED!!! -> ", word_with_errors)
             if word_with_errors in homological_predictions:
+                print("WORD WAS DISCARTED -> ", word_with_errors)
                 continue
             else:
                 if loss_value > 5:
+                    print("WORD WAS DISCARTED -> ", word_with_errors)
+                    continue
+                if is_in_contained_in_table:
+                    print("WORD WAS DISCARTED DUE TO IT IS CONTAINED INSIDE PDF TABLE -> ", word_with_errors)
                     continue
             homological_predictions = [w for w in homological_predictions if check_if_word_contains_spelling_errors(w)]
-            first_homological_word_in_pair_value = (word_with_errors, homological_predictions, loss_value)
-            result.append(IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), has_contextual_errors(word_to_analize, homological_predictions), False, format_suggestions(homological_predictions)))
+            intersected_word_to_append = IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), has_contextual_errors(word_to_analize, homological_predictions), False, format_suggestions(homological_predictions))
+            result.append(intersected_word_to_append)
             first_homological_word_in_pair = True
             continue
         if not check_if_word_contains_spelling_errors(word_to_analize):
@@ -165,7 +179,8 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                 continue
             if regexed_word[0].isupper():
                 continue
-            result.append(IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), False, True, get_spelling_suggestions(word_to_analize)))
+            intersected_word_to_append = IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), False, True, get_spelling_suggestions(word_to_analize))
+            result.append(intersected_word_to_append)
     return result
 
 
@@ -205,15 +220,13 @@ def check_if_contains_homological_words(text):
 
 
 def get_type_of_misspelling(intersectedwordmodel):
-    if intersectedwordmodel.is_contextual_error and intersectedwordmodel.is_ortographical_error is False:
+    if not intersectedwordmodel.is_ortographical_error:
         return 'contextual'
-    if intersectedwordmodel.is_contextual_error is False and intersectedwordmodel.is_ortographical_error:
-        return 'ortografia'
-    print('it seems that the word ', intersectedwordmodel.text, ' has both errors')
-    return 'unknown'
+    return 'ortografia'
 
 
 def analize_file_with_bert(uploadedFile, model, tokenizer):
+    start_time = time.time()
     words_with_spell_checking_problems = []
     with pdfplumber.open(uploadedFile) as pdf:
         for page in pdf.pages:
@@ -239,4 +252,6 @@ def analize_file_with_bert(uploadedFile, model, tokenizer):
                     },
                     "suggestions": word.suggestions,
                 })
+    print('============================= TIME TOOK ============================')
+    print("--- %s seconds ---" % (time.time() - start_time))
     return words_with_spell_checking_problems

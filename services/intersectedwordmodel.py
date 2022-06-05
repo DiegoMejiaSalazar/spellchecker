@@ -9,3 +9,9 @@ class IntersercetedWord:
         self.is_ortographical_error = has_ortographical_errors
         self.suggestions = suggestions
         self.is_useless = False
+
+    def show_coordinates(self):
+        print(self.x0)
+        print(self.top)
+        print(self.y0)
+        print(self.bottom)
