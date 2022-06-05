@@ -1,0 +1,43 @@
+# Environment configuration
+   cd Documents
+   sudo apt install git
+   mkdir tesis
+   cd tesis
+   git clone https://github.com/DiegoMejiaSalazar/ucbcba-correccion-formato
+   cd /tmp
+   wget https://www.python.org/ftp/python/3.8.10/Python-3.8.10.tgz
+   tar -xf Python-3.8.10.tgz
+   cd Python-3.8.10/
+   sudo apt-get install build-essential
+   ./configure --enable-optimizations
+   sudo apt-get install python3-pip
+   python3 --version
+   sudo apt install default-jdk
+   sudo apt install maven
+   cd ~/Documents
+   cd tesis/
+   git clone https://github.com/DiegoMejiaSalazar/spellchecker
+   sudo apt-get update
+   sudo apt install python3-hunspell
+   git clone https://github.com/wooorm/dictionaries/tree/main/dictionaries/es-BO
+   git clone https://github.com/wooorm/dictionaries
+   cd dictionaries/
+   dir
+   cd es-BO/
+   dir
+   sudo mv esbol.dic /usr/share/hunspell
+   sudo mv esbol.aff /usr/share/hunspell
+   ls /usr/share/hunspell
+   pip3 install torch
+   pip3 install flask
+   cd ~/Documents/tesis
+   dir
+   cd spellchecker/
+   dir
+   pip3 install hunspell
+   pip3 install pdfplumber
+   sudo apt-get install python-dev
+   pip3 install transformers
+   pip3 install waitress
+   python3 app.py
+   python3 app.py
