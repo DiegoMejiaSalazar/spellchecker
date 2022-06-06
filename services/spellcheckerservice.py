@@ -90,13 +90,15 @@ def get_sentences_with_contextual_errors(paragraph):
             if sentence == '':
                 continue
             sentence_to_add += sentence
-            result.append((is_inside_pdf_table, word_with_homological_error, sentence_to_add))
+            splitted_sentence = re.split(r'\W+',sentence_to_add)
+            result.append((is_inside_pdf_table, [x for x in splitted_sentence if x in HomologicalWords.words], sentence_to_add))
             sentence_before_was_added = False
             is_pending_to_add = False
             sentence_to_add = ''
             sentence_before = ''
     if is_pending_to_add:
-        result.append((is_inside_pdf_table, word_with_homological_error, sentence_to_add))
+        splitted_sentence = re.split(r'\W+',sentence_to_add)
+        result.append((is_inside_pdf_table,  [x for x in splitted_sentence if x in HomologicalWords.words], sentence_to_add))
     return result
 
 
@@ -106,7 +108,9 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
     paragraphs_with_homological_words = [paragraph for paragraph in splitted_paragraphs if check_if_paragraph_contains_list_of_words(HomologicalWords.words, paragraph)]
     predicted_token = []
     first_homological_word_in_pair = False
-    print("======================================= FIRST PART ============================")
+    words_in_sentence_with_homological_erorrs = []
+    previous_word = ''
+    # print("======================================= FIRST PART ============================")
     for paragraph in paragraphs_with_homological_words:
         sentences_containing_contextual_errors = get_sentences_with_contextual_errors(paragraph)
         for is_inside_pdf_table, word, sentence in sentences_containing_contextual_errors:
@@ -118,50 +122,65 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
             predictions = model(tokens_tensor)[0]
             loss_fct = torch.nn.CrossEntropyLoss()
             loss = loss_fct(predictions.squeeze(), tokens_tensor.squeeze()).data
-            print("LOSS: ", math.exp(loss))
-            print("SENTENCE: ", sentence)
-            print("WORD: ", word)
-            print("MASKED PARAGRAPH: ", masked_paragraph)
-            print("IS INSIDE PDF TABLE", is_inside_pdf_table)
+            # print("LOSS: ", math.exp(loss))
+            # print("SENTENCE: ", sentence)
+            print("WORDS: ", word)
+            # print("MASKED PARAGRAPH: ", masked_paragraph)
+            # print("IS INSIDE PDF TABLE", is_inside_pdf_table)
             if len(mask_positions) == 1:
                 idxs = torch.argsort(predictions[0, mask_positions[0]], descending=True)
                 print("PREDICTIONS 1: ", tokenizer.convert_ids_to_tokens(idxs[:5]))
-                predicted_token.append((is_inside_pdf_table,word, tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
+                predicted_token.append((is_inside_pdf_table,word[0], tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
             else:
                 for i, midx in enumerate(mask_positions):
                     idxs = torch.argsort(predictions[0, midx], descending=True)
-                    print("PREDICTIONS 2: ", tokenizer.convert_ids_to_tokens(idxs[:5]))
-                    predicted_token.append((is_inside_pdf_table, word, tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
-            print("-" * 100)
-    print(predicted_token)
-    print("===================================== SECOND PART =============================================")
+                    # print("PREDICTIONS 2: ", tokenizer.convert_ids_to_tokens(idxs[:5]))
+                    # print("ADDING === ", (is_inside_pdf_table, word[i], tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
+                    predicted_token.append((is_inside_pdf_table, word[i], tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
+            # print("-" * 100)
+    # print(predicted_token)
+    # print("===================================== SECOND PART =============================================")
     for word in extracted_words:
         word_to_analize = word.get('text')
         if ':' in word_to_analize or '.' in word_to_analize or ',' in word_to_analize:
             word_to_analize = word_to_analize.replace(':', '').replace(',', '').replace('.', '')
         if word_to_analize in HomologicalWords.words:
-            print("word in second part: ", word_to_analize)
-            if first_homological_word_in_pair:
-                print("two homologica words in one")
-                print("!!!!!!!!!!!!! WORD was being pop in sequence")
+            print('WORDDD ->', word_to_analize)
+            # print("word in second part: ", word_to_analize)
+            if previous_word in HomologicalWords.words:
+                # print("two homologica words in one")
+                # print("!!!!!!!!!!!!! WORD was being pop in sequence")
                 predicted_token.pop(0)
-                result.pop()
-                first_homological_word_in_pair = False
+                # print('word 1: ', previous_word)
+                # print('word 2: ', word_to_analize)
+                # print('PREDICTED TOKENS: ', predicted_token)
+                # print('RESULT ===================================')
+                # for e in result:
+                #     print("PREDICTION : ", e.text, " SUGGESTION: ", e.suggestions)
+                previous_word = word_to_analize
+                # print('FINISH RESULT ===================================')
                 continue
+            previous_word = word_to_analize
             if len(predicted_token) == 0:
-                print("THIS SHOULD NOT HAPPEN !!!!!!!!!!!!!!!!!")
+                # print("THIS SHOULD NOT HAPPEN !!!!!!!!!!!!!!!!!")
                 continue
-            is_in_contained_in_table, word_with_errors, homological_predictions, loss_value = predicted_token.pop(0)
-            print("WORD IS BEING POPPED!!! -> ", word_with_errors)
+            is_in_contained_in_table, word_with_errors, homological_predictions, loss_value = predicted_token[0]
+            if word_to_analize != word_with_errors:
+                continue
+            else:
+                is_in_contained_in_table, word_with_errors, homological_predictions, loss_value = predicted_token.pop(0)
+            # print("WORD IS BEING POPPED!!! -> ", word_with_errors)
             if word_with_errors in homological_predictions:
-                print("WORD WAS DISCARTED -> ", word_with_errors)
+                # print("WORD WAS DISCARTED -> ", word_with_errors)
                 continue
             else:
                 if loss_value > 5:
-                    print("WORD WAS DISCARTED -> ", word_with_errors)
+                    first_homological_word_in_pair = False
+                    # print("WORD WAS DISCARTED -> ", word_with_errors)
                     continue
                 if is_in_contained_in_table:
-                    print("WORD WAS DISCARTED DUE TO IT IS CONTAINED INSIDE PDF TABLE -> ", word_with_errors)
+                    first_homological_word_in_pair = False
+                    # print("WORD WAS DISCARTED DUE TO IT IS CONTAINED INSIDE PDF TABLE -> ", word_with_errors)
                     continue
             homological_predictions = [w for w in homological_predictions if check_if_word_contains_spelling_errors(w)]
             intersected_word_to_append = IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), has_contextual_errors(word_to_analize, homological_predictions), False, format_suggestions(homological_predictions))
@@ -173,6 +192,7 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
             if len(regexed_word) == 0:
                 continue
             first_homological_word_in_pair = False
+            previous_word = word_to_analize
             if not EnglishDictionary.word_exist(regexed_word[0]):
                 continue
             if not NamesDictionary.word_exist(regexed_word[0]):
@@ -181,6 +201,7 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                 continue
             intersected_word_to_append = IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), False, True, get_spelling_suggestions(word_to_analize))
             result.append(intersected_word_to_append)
+        previous_word = word_to_analize
     return result
 
 
