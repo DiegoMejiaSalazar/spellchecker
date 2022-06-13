@@ -72,5 +72,6 @@ class HomologicalWords:
             'publicó',
             'público',
             'herraron',
-            'erraron'
+            'erraron',
+            'botó'
             ]

@@ -182,6 +182,10 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                     first_homological_word_in_pair = False
                     # print("WORD WAS DISCARTED DUE TO IT IS CONTAINED INSIDE PDF TABLE -> ", word_with_errors)
                     continue
+            if word_with_errors == 'concejo':
+                homological_predictions = ['consejo']
+            if word_with_errors == 'consejo':
+                homological_predictions = ['concejo']
             homological_predictions = [w for w in homological_predictions if check_if_word_contains_spelling_errors(w)]
             intersected_word_to_append = IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), has_contextual_errors(word_to_analize, homological_predictions), False, format_suggestions(homological_predictions))
             result.append(intersected_word_to_append)
