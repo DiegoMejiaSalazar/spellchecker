@@ -26,6 +26,8 @@ class HomologicalWords:
             'yerro',
             'hora',
             'ora',
+            'horas',
+            'oras',
             'bienes',
             'vienes',
             'botar',
@@ -64,11 +66,11 @@ class HomologicalWords:
             'consejo',
             'hola',
             'ola',
-            'consejo',
-            'concejo',
             'genero',
             'género',
             'publico',
             'publicó',
-            'público'
+            'público',
+            'herraron',
+            'erraron'
             ]
