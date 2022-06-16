@@ -197,9 +197,9 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                 continue
             first_homological_word_in_pair = False
             previous_word = word_to_analize
-            if not EnglishDictionary.word_exist(regexed_word[0]):
+            if EnglishDictionary.word_exist(regexed_word[0]):
                 continue
-            if not NamesDictionary.word_exist(regexed_word[0]):
+            if NamesDictionary.word_exist(regexed_word[0]):
                 continue
             if regexed_word[0].isupper():
                 continue

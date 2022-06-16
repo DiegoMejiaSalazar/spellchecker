@@ -26,8 +26,6 @@ class HomologicalWords:
             'yerro',
             'hora',
             'ora',
-            'horas',
-            'oras',
             'bienes',
             'vienes',
             'botar',
