@@ -72,4 +72,5 @@ class HomologicalWords:
             'herraron',
             'erraron',
             'botó'
+            'ay'
             ]

@@ -70,7 +70,7 @@ def get_sentences_with_contextual_errors(paragraph):
     sentence_before_was_added = False
     is_pending_to_add = False
     for sentence in splitted_paragraph:
-        if re.search(r'\bTabla\b\s\d', sentence):
+        if re.search(r'\bTabla\b\s[0-9]{1,5}', sentence) or re.search(r'\bFigura\b\s[0-9]{1,5}[.:]', sentence):
             is_inside_pdf_table = True
         if re.search(r'\b[f,F]uente\b\s*[:]', sentence):
             is_inside_pdf_table = False
@@ -165,14 +165,12 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                 continue
             if word_to_analize in homological_predictions:
                 continue
+            print('adding word : ', word_to_analize, ' with loss : ', loss_value)
             intersected_word_to_append = IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), True, False, format_suggestions(homological_predictions))
             result.append(intersected_word_to_append)
             first_homological_word_in_pair = True
             continue
         if not check_if_word_contains_spelling_errors(word_to_analize):
-            regexed_word = re.findall(r'\s*((?:\w(?!\s+")+|\s(?!\s*"))+\w)\s*', word.get('text'))
-            if len(regexed_word) == 0:
-                continue
             first_homological_word_in_pair = False
             previous_word = word_to_analize
             if EnglishDictionary.word_exist(regexed_word[0]):
@@ -181,8 +179,14 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                 continue
             if regexed_word[0].isupper():
                 continue
-            intersected_word_to_append = IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), False, True, get_spelling_suggestions(word_to_analize))
+            if any(char.isdigit() for char in word_to_analize):
+                continue
+            spelling_predictions = get_spelling_suggestions(word_to_analize)
+            if len(spelling_predictions) == 0:
+                continue
+            intersected_word_to_append = IntersercetedWord(word_to_analize, word.get('x0'), word.get('top'), word.get("x1"), word.get('bottom'), False, True, spelling_predictions)
             result.append(intersected_word_to_append)
+        built_previous_and_current_word = previous_word +  " " + word_to_analize
         previous_word = word_to_analize
     return result
 
@@ -223,19 +227,27 @@ def check_if_contains_homological_words(text):
 
 
 def get_type_of_misspelling(intersectedwordmodel):
-    print(intersectedwordmodel.is_ortographical_error)
     if intersectedwordmodel.is_ortographical_error:
         return 'ortografia'
     return 'contextual'
 
 
-def analize_file_with_bert(uploadedFile, model, tokenizer):
+def analize_file_with_bert(uploadedFile, model, tokenizer, bibliography_start_page):
     start_time = time.time()
     words_with_spell_checking_problems = []
+    flag = True
+    stop_checking = False
+    bibliography_section = False
     with pdfplumber.open(uploadedFile) as pdf:
         for page in pdf.pages:
             extracted_text = page.extract_text()
-            if not check_if_contains_homological_words(extracted_text.replace("\n", " ")):
+            if flag:
+                flag = False
+                stop_checking = True
+                continue
+            if ('INTRODUCCION' in extracted_text) or ('INTRODUCCIÓN' in extracted_text):
+                stop_checking = False
+            if stop_checking or page.page_number >= bibliography_start_page:
                 continue
             document_words = page.extract_words()
             intersected_words = generate_intersected_words(extracted_text, document_words, model, tokenizer)
