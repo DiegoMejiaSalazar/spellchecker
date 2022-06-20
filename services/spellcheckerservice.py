@@ -156,10 +156,6 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                 if is_in_contained_in_table:
                     first_homological_word_in_pair = False
                     continue
-            if word_with_errors == 'concejo':
-                homological_predictions = ['consejo']
-            if word_with_errors == 'consejo':
-                homological_predictions = ['concejo']
             homological_predictions = [w for w in homological_predictions if check_if_word_contains_spelling_errors(w)]
             if len(homological_predictions) == 0:
                 continue
