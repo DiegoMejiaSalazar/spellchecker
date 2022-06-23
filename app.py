@@ -18,7 +18,7 @@ def spell_check():
         return 'No file part', HTTPStatus.BAD_REQUEST
     bibliography_index = int(request.args.to_dict().get('bibliographystart'))
     if bibliography_index == 0:
-        bibliography_index = sys.maxint
+        bibliography_index = sys.maxsize
     return {"errors": analize_file_with_bert(request.files['file'], model, tokenizer, bibliography_index)}, HTTPStatus.OK
 
 
