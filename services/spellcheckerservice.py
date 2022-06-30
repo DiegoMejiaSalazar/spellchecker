@@ -100,7 +100,6 @@ def get_sentences_with_contextual_errors(paragraph):
             splitted_sentence = re.findall(r'\b\w+\b',sentence_to_add)
             for t in splitted_sentence:
                 if t in HomologicalWords.words:
-                    print('WORD : ', t, " WAS ADDED")
                     result.append((is_inside_pdf_table, t, sentence_to_add))
             sentence_before_was_added = False
             is_pending_to_add = False
@@ -110,7 +109,6 @@ def get_sentences_with_contextual_errors(paragraph):
         splitted_sentence = re.findall(r'\b\w+\b',sentence_to_add)
         for t in splitted_sentence:
             if t in HomologicalWords.words:
-                print('WORD : ', t, " WAS ADDED")
                 result.append((is_inside_pdf_table, t, sentence_to_add))
     return result
 
