@@ -30,7 +30,7 @@ def mask_paragraph(paragraph):
         homo_words.append(e)
     
     for word in homo_words:
-        paragraph = re.sub(r'\b[{0},{1}]{2}\b'.format(word[0].capitalize(), word[0], word[1:]), '[MASK]', paragraph)
+        paragraph = re.sub(r'\b{0}\b'.format(word), '[MASK]', paragraph)
     return paragraph
 
 
@@ -98,18 +98,22 @@ def get_sentences_with_contextual_errors(paragraph):
                 continue
             sentence_to_add += sentence
             splitted_sentence = re.findall(r'\b\w+\b',sentence_to_add)
+            homo_words_to_add = []
             for t in splitted_sentence:
                 if t in HomologicalWords.words:
-                    result.append((is_inside_pdf_table, t, sentence_to_add))
+                    homo_words_to_add.append(t)
+            result.append((is_inside_pdf_table, homo_words_to_add, sentence_to_add))
             sentence_before_was_added = False
             is_pending_to_add = False
             sentence_to_add = ''
             sentence_before = ''
     if is_pending_to_add:
         splitted_sentence = re.findall(r'\b\w+\b',sentence_to_add)
+        homo_words_to_add = []
         for t in splitted_sentence:
             if t in HomologicalWords.words:
-                result.append((is_inside_pdf_table, t, sentence_to_add))
+                homo_words_to_add.append(t)
+        result.append((is_inside_pdf_table, t, sentence_to_add))
     return result
 
 
@@ -143,7 +147,7 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                 else:
                     for i, midx in enumerate(mask_positions):
                         idxs = torch.argsort(predictions[0, midx], descending=True)
-                    predicted_token.append((is_inside_pdf_table, word[i], tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
+                        predicted_token.append((is_inside_pdf_table, word, tokenizer.convert_ids_to_tokens(idxs[:5]), math.exp(loss)))
     for word in extracted_words:
         word_to_analize = word.get('text')
         regexed_word = re.findall(r'\s*((?:\w(?!\s+")+|\s(?!\s*"))+\w)\s*', word.get('text'))
@@ -151,15 +155,19 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
             continue
         word_to_analize = regexed_word[0]
         if word_to_analize in HomologicalWords.words:
+            print("WORKING WITH WORD ", word_to_analize)
             if len(predicted_token) == 0:
+                print("WORD ", word_to_analize, " was ignored due to predicted token length")
                 continue
             if previous_word in HomologicalWords.words:
                 predicted_token.pop(0)
                 previous_word = word_to_analize
+                print("WORD ", word_to_analize, " was ignored due to previous word")
                 continue
             previous_word = word_to_analize
             is_in_contained_in_table, word_with_errors, homological_predictions, loss_value = predicted_token[0]
             if word_to_analize != word_with_errors:
+                print("IGNORING BECAUSE WORD ", word_to_analize, " != ", word_with_errors)
                 continue
             else:
                 is_in_contained_in_table, word_with_errors, homological_predictions, loss_value = predicted_token.pop(0)
@@ -242,7 +250,7 @@ def get_amount_of_predictions_allowed(amount_of_pages):
         return 0
     return 10
 
-def analize_file_with_bert(uploadedFile, model, tokenizer, bibliography_start_page, max_index_page, limit_of_homological_words):
+def analize_file_with_bert(uploadedFile, model, tokenizer, bibliography_start_page, max_index_page):
     start_time = time.time()
     words_with_spell_checking_problems = []
     time_limit = 180
@@ -250,7 +258,7 @@ def analize_file_with_bert(uploadedFile, model, tokenizer, bibliography_start_pa
         amount_of_pages = len(pdf.pages)
         check_homological_words = True
         if amount_of_pages > 100:
-            check_homological_words = True
+            check_homological_words = False
         amount_of_allowed_preddictions_allowed = get_amount_of_predictions_allowed(amount_of_pages)
         for page in pdf.pages:
             extracted_text = page.extract_text(x_tolerance=1)
