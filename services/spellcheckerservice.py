@@ -155,19 +155,15 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
             continue
         word_to_analize = regexed_word[0]
         if word_to_analize in HomologicalWords.words:
-            print("WORKING WITH WORD ", word_to_analize)
             if len(predicted_token) == 0:
-                print("WORD ", word_to_analize, " was ignored due to predicted token length")
                 continue
             if previous_word in HomologicalWords.words:
                 predicted_token.pop(0)
                 previous_word = word_to_analize
-                print("WORD ", word_to_analize, " was ignored due to previous word")
                 continue
             previous_word = word_to_analize
             is_in_contained_in_table, word_with_errors, homological_predictions, loss_value = predicted_token[0]
             if word_to_analize != word_with_errors:
-                print("IGNORING BECAUSE WORD ", word_to_analize, " != ", word_with_errors)
                 continue
             else:
                 is_in_contained_in_table, word_with_errors, homological_predictions, loss_value = predicted_token.pop(0)
@@ -192,7 +188,9 @@ def generate_intersected_words(extracted_text, extracted_words, model, tokenizer
                 continue
             if NamesDictionary.word_exist(regexed_word[0]):
                 continue
-            if regexed_word[0].isupper():
+            if regexed_word[0].isupper() and len(regexed_word[0]) < 5:
+                continue
+            if len(regexed_word[0]) <= 3 and regexed_word[0][0].isupper() and any(c not in ['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U'] for c in regexed_word):
                 continue
             if any(char.isdigit() for char in word_to_analize):
                 continue
@@ -262,7 +260,7 @@ def analize_file_with_bert(uploadedFile, model, tokenizer, bibliography_start_pa
         amount_of_allowed_preddictions_allowed = get_amount_of_predictions_allowed(amount_of_pages)
         for page in pdf.pages:
             extracted_text = page.extract_text(x_tolerance=1)
-            if page.page_number < max_index_page or page.page_number > bibliography_start_page:
+            if page.page_number < max_index_page or page.page_number >= bibliography_start_page:
                 continue
             document_words = page.extract_words()
             intersected_words, homological_words_amount = generate_intersected_words(extracted_text, document_words, model, tokenizer, amount_of_allowed_preddictions_allowed, check_homological_words)
