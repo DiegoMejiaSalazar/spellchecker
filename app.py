@@ -7,8 +7,8 @@ from transformers import BertForMaskedLM, BertTokenizer
 from waitress import serve
 import sys
 
-tokenizer = BertTokenizer.from_pretrained('dccuchile/bert-base-spanish-wwm-cased')
-model = BertForMaskedLM.from_pretrained('dccuchile/bert-base-spanish-wwm-cased')
+tokenizer = BertTokenizer.from_pretrained('Diegomejia/bert-ucb-5')
+model = BertForMaskedLM.from_pretrained('Diegomejia/bert-ucb-5')
 app = Flask(__name__)
 
 
