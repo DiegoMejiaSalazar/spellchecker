@@ -19,7 +19,6 @@
    git clone https://github.com/DiegoMejiaSalazar/spellchecker
    sudo apt-get update
    sudo apt install python3-hunspell
-   git clone https://github.com/wooorm/dictionaries/tree/main/dictionaries/es-BO
    git clone https://github.com/wooorm/dictionaries
    cd dictionaries/
    dir
@@ -39,5 +38,4 @@
    sudo apt-get install python-dev
    pip3 install transformers
    pip3 install waitress
-   python3 app.py
    python3 app.py
