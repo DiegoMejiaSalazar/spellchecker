@@ -246,7 +246,7 @@ def get_type_of_misspelling(intersectedwordmodel):
 def get_amount_of_predictions_allowed(amount_of_pages):
     if amount_of_pages > 100:
         return 0
-    return 5
+    return 6
 
 def analize_file_with_bert(uploadedFile, model, tokenizer, bibliography_start_page, max_index_page):
     start_time = time.time()
